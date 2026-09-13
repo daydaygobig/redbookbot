@@ -36,8 +36,22 @@ def load_llm():
     return llm
 
 
+def latest_data_dir():
+    """data/ 下最新有数据的日期目录（每日榜 19:00 前可能只有前天的）"""
+    base = os.path.join(HERE, "data")
+    if not os.path.isdir(base):
+        return None
+    days = sorted(d for d in os.listdir(base)
+                  if re.fullmatch(r"\d{4}-\d{2}-\d{2}", d)
+                  and any(f.endswith(".json") for f in
+                          os.listdir(os.path.join(base, d))))
+    return days[-1] if days else None
+
+
 def collect_candidates(rank_date):
     """读 data/<date>/*.json -> 去重、按新增互动排序，返回 (文本行, 链接集合)"""
+    if not rank_date:
+        sys.exit("[FAIL] data/ 下没有任何榜单数据，请先执行拉取（fetch_hot.py）")
     files = glob.glob(os.path.join(HERE, "data", rank_date, "*.json"))
     if not files:
         sys.exit("[FAIL] 找不到 data/%s/ 榜单数据，请先执行拉取（fetch_hot.py）" % rank_date)
@@ -100,7 +114,9 @@ def main():
     today = str(date.today())
     if "--date" in args:
         today = args[args.index("--date") + 1]
-    rank_date = str(date.today() - timedelta(days=1))
+    rank_date = latest_data_dir()
+    if not rank_date:
+        sys.exit("[FAIL] data/ 下没有任何榜单数据，请先执行拉取（fetch_hot.py）")
 
     out_path = os.path.join(HERE, "daily", today + ".md")
     if os.path.exists(out_path) and not force:
